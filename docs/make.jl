@@ -9,5 +9,4 @@ makedocs(;
     repo="https://gitlab.com/seamsay/Ansillary.jl/blob/{commit}{path}#L{line}",
     sitename="Ansillary.jl",
     authors="Sean Marshallsay",
-    assets=String[],
 )
