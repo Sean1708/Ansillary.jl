@@ -40,14 +40,15 @@ export
 	Home,
 	Insert,
 	Left,
-	Meta,
 	Millisecond,
+	Modified,
 	Null,
 	PageDown,
 	PageUp,
 	Right,
 	Second,
 	Shift,
+	Super,
 	Tick,
 	Up
 
@@ -118,7 +119,7 @@ abstract type Modifier end
 
 Base.show(io::IO, modifier::Modifier) = print(io, nameof(typeof(modifier)))
 
-struct Meta <: Modifier end
+struct Super <: Modifier end
 
 struct Ctrl <: Modifier end
 
@@ -129,6 +130,8 @@ struct Shift <: Modifier end
 struct Modified <: Key
 	key::Key
 	modifiers::Vector{Modifier}
+
+	Modified(key, modifiers) = new(key, unique(modifiers))
 end
 
 Base.show(io::IO, modified::Modified) = print(
@@ -147,6 +150,13 @@ function Base.:(==)(left::Modified, right::Modified)
 		for modifier in left.modifiers
 	)
 end
+
+Base.:(+)(l::Modifier, r::Modifier) = [l; r]
+Base.:(+)(m::Modifier, k::Key) = Modified(k, [m])
+Base.:(+)(m::Modifier, c::Char) = Modified(Character(c), [m])
+Base.:(+)(l::Vector{Modifier}, r::Modifier) = [l; r]
+Base.:(+)(m::Vector{Modifier}, k::Key) = Modified(k, m)
+Base.:(+)(m::Vector{Modifier}, c::Char) = Modified(Character(c), m)
 
 const CTRL_C = Modified(Character('c'), [Ctrl()])
 
@@ -217,7 +227,7 @@ function modifiers(parameter)
 	end
 
 	if modmap & 0b1000 != 0
-		push!(modifiers, Meta())
+		push!(modifiers, Super())
 	end
 
 	modifiers
