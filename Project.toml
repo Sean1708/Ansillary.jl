@@ -3,6 +3,10 @@ uuid = "e36756a0-2672-11ea-3472-2f9ad6253375"
 authors = ["Sean Marshallsay"]
 version = "0.1.0"
 
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+
 [compat]
 julia = "1.0"
 
