@@ -1,11 +1,24 @@
-Julia 1.0:
-  image: julia:1.0
+before_script:
+  # Workaround for `https://github.com/JuliaDocs/Documenter.jl/issues/868`.
+  - apt-get -qq update; apt-get -y install git
+
+Julia Latest:
+  image: julia:latest
+  script: julia --project='@.' -e 'using Pkg; Pkg.build(); Pkg.test()'
+
+Julia 1.Latest:
+  image: julia:1
   script: julia --project='@.' -e 'using Pkg; Pkg.build(); Pkg.test(; coverage=true)'
   coverage: /Test Coverage (\d+\.\d+%)/
   after_script:
     - julia -e 'using Printf; using Pkg; Pkg.add("Coverage"); using Coverage; c, t = get_summary(process_folder()); @printf "Test Coverage %.2f%%\n" 100c/t'
-pages:
+
+Julia 1.0:
   image: julia:1.0
+  script: julia --project='@.' -e 'using Pkg; Pkg.build(); Pkg.test()'
+
+pages:
+  image: julia:1
   stage: deploy
   script:
     - julia --project=docs -e '
