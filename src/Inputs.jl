@@ -50,7 +50,38 @@ export
 	Shift,
 	Super,
 	Tick,
-	Up
+	Up,
+	paste
+
+
+"""
+Permanently set the terminal to bracketed paste mode.
+
+Use [`nopaste!`](@ref) to return the terminal to normal.
+
+!!! note
+
+    Prefer using [`paste`](@ref) where possible as it's very easy to accidently
+    leave the bracketed paste mode enabled using this method.
+"""
+paste!(terminal = TERMINAL[]) = print(terminal.out_stream, Terminals.CSI, "?2004h")
+
+"""
+Turn off bracketed paste mode.
+"""
+nopaste!(terminal = TERMINAL[]) = print(terminal.out_stream, Terminals.CSI, "?2004l")
+
+"""
+Temporarily set bracketed paste mode for the duration of the function.
+"""
+function paste(f, terminal = TERMINAL[])
+	paste!(terminal)
+	try
+		f()
+	finally
+		nopaste!(terminal)
+	end
+end
 
 
 abstract type Event end
@@ -64,6 +95,20 @@ struct Location <: Event
 	row::UInt16
 	column::UInt16
 end
+
+"""
+The event sent before text is pasted.
+
+Only sent when bracketed paste mode ([`paste`](@ref)) is enabled.
+"""
+struct PasteStart <: Event end
+
+"""
+The event sent when text has finished being pasted.
+
+Only sent when bracketed paste mode ([`paste`](@ref)) is enabled.
+"""
+struct PasteEnd <: Event end
 
 """
 An event that is not currently recognised.
@@ -419,6 +464,10 @@ function read_special_keycode(input, previous, buffer, final)
 		F(keycode - 11)
 	elseif keycode in 23:24
 		F(keycode - 12)
+	elseif keycode == 200
+		PasteStart()
+	elseif keycode == 201
+		PasteEnd()
 	else
 		return Unknown([previous; buffer; final], input)
 	end

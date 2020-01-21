@@ -455,7 +455,7 @@ function draw(stage::ScrollTestAcknowledge, _)
 end
 
 function handle(stage::ScrollTestAcknowledge, event, state)
-	next = stage.func === Scroll.down! ? ScrollTest(Scroll.up!) : InputTest()
+	next = stage.func === Scroll.down! ? ScrollTest(Scroll.up!) : PasteTest()
 
 	if event == Inputs.Character('y')
 		Screen.clear!(Screen.All())
@@ -477,6 +477,50 @@ function handle(stage::ScrollTestAcknowledge, event, state)
 
 		stage
 	end
+end
+
+
+struct PasteTest <: Stage end
+
+function draw(stage::PasteTest, _)
+	println("Next we will test whether bracketed paste is working.")
+	println("Please paste some (not too much) text into the terminal.")
+
+	Inputs.paste!()
+end
+
+handle(::PasteTest, event, state) = if event == Inputs.PasteStart()
+	PasteTestFindEnd()
+else
+	push!(state.issues, "Terminal did not send the `PasteStart` event.")
+
+	Inputs.nopaste!()
+
+	PasteTestEatInput()
+end
+
+struct PasteTestFindEnd <: Stage end
+
+handle(stage::PasteTestFindEnd, event, _) = if event == Inputs.PasteEnd()
+	Inputs.nopaste!()
+
+	InputTest()
+else
+	stage
+end
+
+struct PasteTestEatInput <: Stage
+	seen_tick
+end
+
+PasteTestEatInput() = PasteTestEatInput(false)
+
+# Since pasted input gets sent all at once if we see two ticks then that's
+# probably the end of input.
+tick(stage::PasteTestEatInput) = if stage.seen_tick
+	InputTest()
+else
+	PasteTestEatInput(true)
 end
 
 
