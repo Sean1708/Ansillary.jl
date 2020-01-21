@@ -110,17 +110,37 @@ move!(direction::Column) = move!(TERMINAL[], direction)
 
 
 """
+Save the current location of the cursor.
+
+You can then return to that location using [`restore!`](@ref).
+
+!!! warning
+
+    Calling this function twice will overwrite the old value.
+"""
+save!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "s")
+
+"""
+Move the cursor back to it's saved location.
+
+You can save a location using [`save!`](@ref).
+"""
+restore!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "u")
+
+"""
+Return the cursor to it's current location after the function has finished.
+
 !!! note
 
     This uses the ANSI code for saving the cursor so it can't be nested, use
-    `Cursor.checkpoint` if you need to nest these calls.
+    `Cursor.checkpoint` if these calls need to be nested.
 """
 function save(f, terminal = TERMINAL[])
-	print(terminal.out_stream, CSI, "s")
+	save!(terminal)
 	try
 		f()
 	finally
-		print(terminal.out_stream, CSI, "u")
+		restore!(terminal)
 	end
 end
 
