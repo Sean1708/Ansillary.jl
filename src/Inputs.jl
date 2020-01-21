@@ -80,6 +80,9 @@ Unknown(data, input) = Unknown([
 	bytesavailable(input) > 0 ? readavailable(input) : [];
 ])
 
+"""
+Event that is sent by the event loop every period.
+"""
 struct Tick <: Event end
 
 abstract type Input <: Event end
@@ -116,12 +119,24 @@ struct Esc <: Key end
 
 struct Null <: Key end
 
+"""
+A function key.
+"""
 struct F <: Key
 	number::UInt8
+
+	F(number) = if 1 <= number <= 12
+		new(number)
+	else
+		throw(DomainError(number, "only function keys 12 or smaller are supported"))
+	end
 end
 
 Base.show(io::IO, f::F) = print(io, 'F', f.number)
 
+"""
+A printable character.
+"""
 struct Character <: Key
 	value::Char
 end
@@ -140,6 +155,26 @@ struct Alt <: Modifier end
 
 struct Shift <: Modifier end
 
+"""
+A key event that has been modified, e.g. Ctrl+c.
+
+A `Modified` event can be created using the `+` operator:
+
+```jldoctest
+julia> Ctrl()+'c' == Modified(Character('c'), [Ctrl()])
+true
+
+julia> Ctrl()+Super()+Insert() == Modified(Insert(), [Super(), Ctrl()])
+true
+```
+
+The order of modifiers given to the constructor is not important:
+
+```jldoctest
+julia> Modified(Delete(), [Ctrl(), Alt()]) == Modified(Delete(), [Alt(), Ctrl()])
+true
+```
+"""
 struct Modified <: Key
 	key::Key
 	modifiers::Vector{Modifier}
@@ -171,29 +206,8 @@ Base.:(+)(l::Vector{Modifier}, r::Modifier) = [l; r]
 Base.:(+)(m::Vector{Modifier}, k::Key) = Modified(k, m)
 Base.:(+)(m::Vector{Modifier}, c::Char) = Modified(Character(c), m)
 
-const CTRL_C = Modified(Character('c'), [Ctrl()])
+const CTRL_C = Ctrl()+'c'
 
-
-"""
-Blocking.
-
-# Examples
-
-```
-for key in Inputs.Events(stdin)
-	@show key
-	if key == Inputs.CTRL_C
-		break
-	end
-end
-```
-"""
-struct Events{I <: IO}
-	input::I
-end
-
-Events(terminal::Terminals.TTYTerminal) = Events(terminal.in_stream)
-Events() = Events(TERMINAL[].in_stream)
 
 # TODO: Rewrite this based on: http://www.inwap.com/pdp10/ansicode.txt
 
@@ -446,6 +460,27 @@ function read_utf8(input, previous, first)
 end
 
 
+"""
+Iterate over input events.
+
+# Examples
+
+```
+for key in Inputs.Events(stdin)
+	@show key
+	if key == Inputs.CTRL_C
+		break
+	end
+end
+```
+"""
+struct Events{I <: IO}
+	input::I
+end
+
+Events(terminal::Terminals.TTYTerminal) = Events(terminal.in_stream)
+Events() = Events(TERMINAL[].in_stream)
+
 Base.iterate(e::Events, _ = nothing) = (read(e.input, Event), nothing)
 Base.IteratorSize(::Type{Events}) = Base.IsInfinite()
 Base.IteratorEltype(::Type{Events}) = Base.HasEltype()
@@ -453,7 +488,12 @@ Base.eltype(::Type{Events}) = Input
 
 
 """
-Non-blocking (at least it doesn't block indefinitely).
+Iterate over a simple event loop.
+
+The event loop will send a [`Tick`](@ref) event every period (though this isn't
+guaranteed, for example computationally heavy loop bodies will cause the tick to
+be sent after the body finishes), and send any received input events between
+those ticks.
 
 !!! warning
 
@@ -463,12 +503,12 @@ Non-blocking (at least it doesn't block indefinitely).
 
 !!! warning
 
-    The current implementation can't be used with `Cursor.location` (and therefore
-    `Cursor.Row`), due to implementation limitations.
+    The current implementation is incompatible with the following methods because
+    there is a background task constantly reading from the input stream:
 
-Usually ticks will always be `period` apart and key presses will come between
-ticks however this is not guaranteed, especially if you're doing computationally
-heavy work inside the loop.
+    * [`Cursor.location`](@ref).
+    * [`Cursor.move!`](@ref) methods that take a [`Cursor.Row`](@ref).
+    * [`Screen.size`](@ref).
 
 # Examples
 

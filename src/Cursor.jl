@@ -6,9 +6,32 @@ using ..Inputs: Event, Location
 using REPL.Terminals: CSI
 
 
-export Column, Coordinate, Down, Left, Up, Right, Row, checkpoint, hide, location, move!, save
+export
+	Column,
+	Coordinate,
+	Down,
+	Left,
+	Movement,
+	Up,
+	Right,
+	Row,
+	checkpoint,
+	hide,
+	location,
+	move!,
+	save
 
 
+"""
+A nestable implementation of [`save`](@ref).
+
+!!! warning
+
+    This function will not work correctly with [`Inputs.EventLoop`](@ref).
+
+This function will save the current location of the cursor, run the function,
+then move the cursor back to it's original location.
+"""
 function checkpoint(f, terminal = TERMINAL[])
 	old = location(terminal)
 	try
@@ -19,14 +42,30 @@ function checkpoint(f, terminal = TERMINAL[])
 end
 
 
+"""
+Permanently hide the cursor.
+
+Use [`show!`](@ref) to show the cursor again.
+
+!!! note
+
+    You should prefer using [`hide`](@ref) where possible as it's very easy to
+    accidently leave the cursor hidden using this method.
+"""
 function hide!(terminal = TERMINAL[])
 	print(terminal.out_stream, CSI, "?25l")
 end
 
+"""
+Show the cursor again after it has been hidden by [`hide!`](@ref).
+"""
 function show!(terminal = TERMINAL[])
 	print(terminal.out_stream, CSI, "?25h")
 end
 
+"""
+Temporarily hide the cursor for the duration of the provided function.
+"""
 function hide(f, terminal = TERMINAL[])
 	hide!(terminal)
 	try
@@ -38,13 +77,12 @@ end
 
 
 """
-!!! warning
-
-    This function will only work properly in raw mode, e.g. `Screen.raw(Cursor.location)`.
+Get the current location of the cursor.
 
 !!! warning
 
-    This function currently does not work correctly with `Inputs.EventLoop`.
+    This function will only work properly in raw mode, e.g.
+    `Screen.raw(Cursor.location)`.
 """
 function location(terminal = TERMINAL[])
 	print(terminal.out_stream, CSI, "6n")
@@ -57,56 +95,80 @@ function location(terminal = TERMINAL[])
 end
 
 
-struct Up
+_move!(terminal, codes...) = print(terminal.out_stream, CSI, codes...)
+
+abstract type Movement end
+
+"""
+Move the cursor.
+
+See the documentation on subtypes of [`Movement`](@ref) for more details.
+"""
+move!(direction::Movement) = move!(TERMINAL[], direction)
+
+"""
+Move the cursor up the given number of rows.
+"""
+struct Up <: Movement
 	count::UInt16
 end
-move!(terminal, direction::Up) = print(terminal.out_stream, CSI, direction.count, "A")
-move!(direction::Up) = move!(TERMINAL[], direction)
+move!(terminal, direction::Up) = _move!(terminal, direction.count, "A")
 
-struct Down
+"""
+Move the cursor down the given number of rows.
+"""
+struct Down <: Movement
 	count::UInt16
 end
-move!(terminal, direction::Down) = print(terminal.out_stream, CSI, direction.count, "B")
-move!(direction::Down) = move!(TERMINAL[], direction)
+move!(terminal, direction::Down) = _move!(terminal, direction.count, "B")
 
-struct Left
+"""
+Move the cursor left the given number of columns.
+"""
+struct Left <: Movement
 	count::UInt16
 end
-move!(terminal, direction::Left) = print(terminal.out_stream, CSI, direction.count, "D")
-move!(direction::Left) = move!(TERMINAL[], direction)
+move!(terminal, direction::Left) = _move!(terminal, direction.count, "D")
 
-struct Right
+"""
+Move the cursor right the given number of columns.
+"""
+struct Right <: Movement
 	count::UInt16
 end
-move!(terminal, direction::Right) = print(terminal.out_stream, CSI, direction.count, "C")
-move!(direction::Right) = move!(TERMINAL[], direction)
+move!(terminal, direction::Right) = _move!(terminal, direction.count, "C")
 
-struct Coordinate
+"""
+Move the cursor to the given coordinate.
+"""
+struct Coordinate <: Movement
 	row::UInt16
 	column::UInt16
 end
-move!(terminal, direction::Coordinate) = print(terminal.out_stream, CSI, direction.row, ";", direction.column, "H")
-move!(direction::Coordinate) = move!(TERMINAL[], direction)
+move!(terminal, direction::Coordinate) = _move!(terminal, direction.row, ";", direction.column, "H")
 
 """
+Move the cursor to a given row _without changing it's column_.
+
 !!! warning
 
     This movement currently does not work properly with `Inputs.EventLoop` due to it's use of `Cursor.location`.
 """
-struct Row
+struct Row <: Movement
 	row::UInt16
 end
 function move!(terminal, direction::Row)
 	column = location(terminal).column
 	move!(terminal, Coordinate(direction.row, column))
 end
-move!(direction::Row) = move!(TERMINAL[], direction)
 
-struct Column
+"""
+Move the cursor to a given column _without changing it's row_.
+"""
+struct Column <: Movement
 	column::UInt16
 end
-move!(terminal, direction::Column) = print(terminal.out_stream, CSI, direction.column, "G")
-move!(direction::Column) = move!(TERMINAL[], direction)
+move!(terminal, direction::Column) = _move!(terminal, direction.column, "G")
 
 
 """
