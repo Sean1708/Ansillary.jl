@@ -13,8 +13,10 @@ function __init__()
 end
 
 
-include("Cursor.jl")
+# Needs to be at top because `Cursor` needs it.
 include("Inputs.jl")
+
+include("Cursor.jl")
 include("Screen.jl")
 include("Scroll.jl")
 

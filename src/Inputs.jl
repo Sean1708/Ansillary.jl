@@ -55,6 +55,19 @@ export
 
 abstract type Event end
 
+"""
+The location of the cursor.
+
+See also: [`Cursor.location`](@ref).
+"""
+struct Location <: Event
+	row::UInt16
+	column::UInt16
+end
+
+"""
+An event that is not currently recognised.
+"""
 struct Unknown <: Event
 	data::Vector{UInt8}
 end
@@ -332,6 +345,15 @@ function read_fn(input, previous, range, offset)
 	end
 end
 
+function read_location(input, previous, buffer, final)
+	parameters = parse.(UInt16, split(String(copy(buffer)), ';'))
+	if length(parameters) != 2
+		return Unknown([previous; buffer; final], input)
+	end
+
+	Location(parameters...)
+end
+
 function read_modified_direction(input, previous, buffer, final)
 	key = DIRECTIONS[final]()
 	parameters = parse.(UInt16, split(String(copy(buffer)), ';'))
@@ -351,6 +373,8 @@ function read_numbered_escape(input, previous, final)
 		read_modified_direction(input, previous, buffer, final)
 	elseif final == UInt8('M')
 		error("rxvt mouse not implemented")
+	elseif final == UInt8('R')
+		read_location(input, previous, buffer, final)
 	else
 		Unknown([previous; buffer; final], input)
 	end

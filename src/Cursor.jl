@@ -2,6 +2,7 @@ module Cursor
 
 import ..TERMINAL
 
+using ..Inputs: Event, Location
 using REPL.Terminals: CSI
 
 
@@ -13,7 +14,7 @@ function checkpoint(f, terminal = TERMINAL[])
 	try
 		f()
 	finally
-		move!(terminal, old)
+		move!(terminal, Coordinate(old.row, old.column))
 	end
 end
 
@@ -48,13 +49,11 @@ end
 function location(terminal = TERMINAL[])
 	print(terminal.out_stream, CSI, "6n")
 
-	@assert read(terminal.in_stream, UInt8) == UInt8(CSI[1])
-	@assert read(terminal.in_stream, UInt8) == UInt8(CSI[2])
+	event = read(terminal.in_stream, Event)
 
-	row = parse(UInt16, readuntil(terminal.in_stream, ';'))
-	col = parse(UInt16, readuntil(terminal.in_stream, 'R'))
+	@assert event isa Location
 
-	Coordinate(row, col)
+	event
 end
 
 
