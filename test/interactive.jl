@@ -52,8 +52,8 @@ end
 struct SizeTest <: Stage end
 
 function draw(::SizeTest, state)
-	rows = state.size.row
-	columns = state.size.column
+	rows = state.size.rows
+	columns = state.size.columns
 	println("We have calculated that your terminal is $rows rows by $columns columns.")
 	println("Does this look correct? (y/n)")
 end
@@ -310,13 +310,13 @@ else
 	stage
 end
 
-row(character, state) = character ^ state.size.column
+row(character, state) = character ^ state.size.columns
 line(character, state) = row(character, state) * '\n'
 
 struct ClearTestAll <: ClearTest end
 
 function setup(::ClearTestAll, state)
-	print(line('x', state) ^ (state.size.row - 1))
+	print(line('x', state) ^ (state.size.rows - 1))
 	print(row('x', state))
 end
 
@@ -329,7 +329,7 @@ struct ClearTestCurrentLine <: ClearTest end
 function setup(::ClearTestCurrentLine, state)
 	print(line('o', state) ^ 10)
 	print(line('x', state))
-	print(line('o', state) ^ (state.size.row - 12))
+	print(line('o', state) ^ (state.size.rows - 12))
 	print(row('o', state))
 
 	Cursor.move!(Cursor.Coordinate(11, 1))
@@ -343,8 +343,8 @@ struct ClearTestFromCursorBack <: ClearTest end
 
 function setup(::ClearTestFromCursorBack, state)
 	print(line('o', state) ^ 15)
-	println('x' ^ 10, '|', 'o' ^ (state.size.column - 11))
-	print(line('o', state) ^ (state.size.row - 17))
+	println('x' ^ 10, '|', 'o' ^ (state.size.columns - 11))
+	print(line('o', state) ^ (state.size.rows - 17))
 	print(row('o', state))
 
 	Cursor.move!(Cursor.Coordinate(16, 10))
@@ -358,8 +358,8 @@ struct ClearTestFromCursorForward <: ClearTest end
 
 function setup(::ClearTestFromCursorForward, state)
 	print(line('o', state) ^ 20)
-	println('o' ^ 20, '|', 'x' ^ (state.size.column - 21))
-	print(line('o', state) ^ (state.size.row - 22))
+	println('o' ^ 20, '|', 'x' ^ (state.size.columns - 21))
+	print(line('o', state) ^ (state.size.rows - 22))
 	print(row('o', state))
 
 	Cursor.move!(Cursor.Coordinate(21, 22))
@@ -373,8 +373,8 @@ struct ClearTestFromCursorUp <: ClearTest end
 
 function setup(::ClearTestFromCursorUp, state)
 	print(line('x', state) ^ 7)
-	println('x' ^ 16, '|', 'o' ^ (state.size.column - 17))
-	print(line('o', state) ^ (state.size.row - 9))
+	println('x' ^ 16, '|', 'o' ^ (state.size.columns - 17))
+	print(line('o', state) ^ (state.size.rows - 9))
 	print(row('o', state))
 
 	Cursor.move!(Cursor.Coordinate(8, 16))
@@ -388,8 +388,8 @@ struct ClearTestFromCursorDown <: ClearTest end
 
 function setup(::ClearTestFromCursorDown, state)
 	print(line('o', state) ^ 17)
-	println('o' ^ 8, '|', 'x' ^ (state.size.column - 9))
-	print(line('x', state) ^ (state.size.row - 19))
+	println('o' ^ 8, '|', 'x' ^ (state.size.columns - 9))
+	print(line('x', state) ^ (state.size.rows - 19))
 	print(row('x', state))
 
 	Cursor.move!(Cursor.Coordinate(18, 10))
@@ -427,9 +427,9 @@ function draw(stage::ScrollTest, state)
 
 	direction = nameof(f)
 	area = f ===  Scroll.down! ? "top" : "bottom"
-	row = f === Scroll.down! ? 1 : state.size.row - 2
+	row = f === Scroll.down! ? 1 : state.size.rows - 2
 
-	print(join(1:state.size.row, '\n'))
+	print(join(1:state.size.rows, '\n'))
 
 	Cursor.move!(Cursor.Coordinate(row, 5))
 	print("The terminal will scroll $direction.")
@@ -554,7 +554,7 @@ end
 
 
 state = State()
-if state.size.row < 24 || state.size.column < 80
+if state.size.rows < 24 || state.size.columns < 80
 	error("this script assumes a terminal size of at least 24x80")
 end
 

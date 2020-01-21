@@ -79,16 +79,19 @@ function raw(f, terminal = TERMINAL[])
 end
 
 
-"""
-!!! warning
+struct Size
+	rows::UInt32
+	columns::UInt32
+end
 
-    This function will only work properly in raw mode, e.g. `Screen.raw(Screen.size)`.
+"""
+Get the current size of the terminal.
+
+See also: [`displaysize`](@ref).
 """
 function size(terminal = TERMINAL[])
-	Cursor.checkpoint(terminal) do
-		Cursor.move!(terminal, Cursor.Coordinate(typemax(UInt16), typemax(UInt16)))
-		Cursor.location(terminal)
-	end
+	(rows, columns) = displaysize(terminal.out_stream)
+	Size(rows, columns)
 end
 
 end # module
