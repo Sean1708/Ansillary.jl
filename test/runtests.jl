@@ -1,6 +1,25 @@
 using Ansillary
 using Ansillary.Inputs
+using Documenter
 using Test
+
+DocMeta.setdocmeta!(Ansillary, :DocTestSetup, :(using Ansillary))
+DocMeta.setdocmeta!(
+	Ansillary.Cursor,
+	:DocTestSetup,
+	:(using Ansillary; using Ansillary.Cursor),
+)
+DocMeta.setdocmeta!(
+	Ansillary.Inputs,
+	:DocTestSetup,
+	:(using Ansillary; using Ansillary.Inputs),
+)
+DocMeta.setdocmeta!(
+	Ansillary.Screen,
+	:DocTestSetup,
+	:(using Ansillary; using Ansillary.Screen),
+)
+doctest(Ansillary)
 
 # TODO: Use libvterm (http://www.leonerd.org.uk/code/libvterm/) to implement tests.
 

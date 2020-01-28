@@ -1,3 +1,69 @@
+"""
+This module deals with controlling the cursor.
+
+The two major pieces of functionality in this module are moving the cursor and hiding the cursor.
+
+Move the cursor using the [`move!`](@ref) function:
+
+```julia
+move!(Up(3))
+```
+
+There are several different movements available, see documentation on the subtypes of [`Movement`](@ref) for more details.
+
+It is possible to temporarily move the cursor to a different location using [`save`](@ref) or [`checkpoint`](@ref):
+
+```julia
+move!(Coordinate(1, 1))
+println("First line!")
+
+save() do
+	move!(Down(4))
+	println("Fifth line!")
+
+	checkpoint() do
+		move!(Down(4))
+		println("Tenth line!")
+
+		checkpoint() do
+			move!(Down(4))
+			println("Fifteenth line!")
+		end
+	end
+end
+
+println("Second line!")
+
+checkpoint() do
+	move!(Down(4))
+	println("Sixth line!")
+
+	checkpoint() do
+		move!(Down(4))
+		println("Eleventh line!")
+	end
+end
+```
+
+The location of the cursor can also be found using [`location`](@ref), though note that this only works in raw mode:
+
+```julia-repl
+julia> Screen.raw(Cursor.location)
+Ansillary.Inputs.Location(0x003c, 0x0001)
+```
+
+Hiding the cursor is done using Julia's support for `do`-notation:
+
+```julia-repl
+julia> Cursor.hide() do
+		   for c in "There is no cursor..."
+			   print(c)
+			   sleep(0.1)
+		   end
+	   end
+There is no cursor...
+```
+"""
 module Cursor
 
 import ..TERMINAL
@@ -27,10 +93,13 @@ A nestable implementation of [`save`](@ref).
 
 !!! warning
 
-    This function will not work correctly with [`Inputs.EventLoop`](@ref).
+	This function will not work correctly with [`Inputs.EventLoop`](@ref).
 
-This function will save the current location of the cursor, run the function,
-then move the cursor back to it's original location.
+!!! warning
+
+	This function will only work correctly when using [`Screen.raw`](@ref).
+
+This function will save the current location of the cursor, run the function, then move the cursor back to it's original location.
 """
 function checkpoint(f, terminal = TERMINAL[])
 	old = location(terminal)
@@ -49,12 +118,9 @@ Use [`show!`](@ref) to show the cursor again.
 
 !!! note
 
-    You should prefer using [`hide`](@ref) where possible as it's very easy to
-    accidently leave the cursor hidden using this method.
+	You should prefer using [`hide`](@ref) where possible as it's very easy to accidently leave the cursor hidden using this method.
 """
-function hide!(terminal = TERMINAL[])
-	print(terminal.out_stream, CSI, "?25l")
-end
+hide!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "?25l")
 
 """
 Show the cursor again after it has been hidden by [`hide!`](@ref).
@@ -81,8 +147,7 @@ Get the current location of the cursor.
 
 !!! warning
 
-    This function will only work properly in raw mode, e.g.
-    `Screen.raw(Cursor.location)`.
+	This function will only work properly in raw mode, e.g. `Screen.raw(Cursor.location)`.
 """
 function location(terminal = TERMINAL[])
 	print(terminal.out_stream, CSI, "6n")
@@ -97,6 +162,19 @@ end
 
 _move!(terminal, codes...) = print(terminal.out_stream, CSI, codes...)
 
+"""
+A way that the cursor can be moved.
+
+See the documentation of it's subtypes for more details:
+
+* [`Up`](@ref)
+* [`Down`](@ref)
+* [`Left`](@ref)
+* [`Right`](@ref)
+* [`Coordinate`](@ref)
+* [`Row`](@ref)
+* [`Column`](@ref)
+"""
 abstract type Movement end
 
 """
@@ -152,7 +230,7 @@ Move the cursor to a given row _without changing it's column_.
 
 !!! warning
 
-    This movement currently does not work properly with `Inputs.EventLoop` due to it's use of `Cursor.location`.
+	This movement currently does not work properly with `Inputs.EventLoop` due to it's use of `Cursor.location`.
 """
 struct Row <: Movement
 	row::UInt16
@@ -178,7 +256,7 @@ You can then return to that location using [`restore!`](@ref).
 
 !!! warning
 
-    Calling this function twice will overwrite the old value.
+	Calling this function twice will overwrite the old value.
 """
 save!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "s")
 
@@ -192,10 +270,13 @@ restore!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "u")
 """
 Return the cursor to it's current location after the function has finished.
 
-!!! note
+!!! tip
 
-    This uses the ANSI code for saving the cursor so it can't be nested, use
-    `Cursor.checkpoint` if these calls need to be nested.
+	Use this function instead of [`checkpoint`](@ref) if you are not using raw mode or if you are using [`Inputs.EventLoop`](@ref).
+
+!!! warning
+
+	This uses the ANSI code for saving the cursor so it can't be nested, use [`checkpoint`](@ref) if these calls need to be nested.
 """
 function save(f, terminal = TERMINAL[])
 	save!(terminal)

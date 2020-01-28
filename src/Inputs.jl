@@ -1,19 +1,51 @@
 """
+This module deals with reading events from the terminal.
+
+Mostly these events will be input from the user, but some of the functionality is about the _terminal_ sending messages as well.
+
+The fundamental piece of functionality that this module offers is being able to a single event from an input stream.
+
+```jldoctest
+julia> read(IOBuffer("\e[7;2~"), Event)
+Shift+Home
+```
+
+If Ansillary does not recognise an event it will return the bytes that it has read _and any remaining bytes in the stream_.
+
+```jldoctest
+julia> read(IOBuffer("\e[Q\e[7;2~"), Event)
+Ansillary.Inputs.Unknown(UInt8[0x1b, 0x5b, 0x51, 0x1b, 0x5b, 0x37, 0x3b, 0x32, 0x7e])
+```
+
+This is done to minimise the risk of the application receiving a seemingly valid event that is actually part of an unknown event, which could lead to highly undesirable consequences. Note that **this is not completely foolproof**, for example Konsole sends `"\x18@sy"` when Super+y is pressed and Ansillary will happily accept that as four separate events.
+
+```jldoctest
+julia> let input = IOBuffer("\x18@sy"); [read(input, Event), read(input, Event), read(input, Event), read(input, Event)] end
+4-element Array{Ansillary.Inputs.Key,1}:
+ Ctrl+x
+ @
+ s
+ y
+```
+
+[`Events`](@ref) is an iterator that wraps `read(::Any, ::Event)`, see the file `examples/keylogger.jl` to see how that works. [`EventLoop`](@ref) is an iterator that also sends a [`Tick`](@ref) event every `period`, see the file `examples/snake.jl` or `tests/interactive.jl` to see how that works (also make sure to pay attention to the warnings on that type's documentation).
+
+This module also contains the [`paste`](@ref) function, which allows you to turn on bracketed paste mode. In bracketed paste mode when the user pastes something into the terminal, a [`PasteStart`](@ref) event will be sent, followed by the pasted text, then finally a [`PasteEnd`](@ref) event.
+
 !!! warning
 
-    The functionality of this module will only work properly if the terminal is
-    in raw mode, e.g.
+	The functionality of this module will only work properly if the terminal is in raw mode, e.g.
 
-    ```julia
-    Screen.raw() do
-        for key in Inputs.Events(stdin)
-            @show key
-            if key == Inputs.CTRL_C
-                break
-            end
-        end
-    end
-    ```
+	```julia
+	Screen.raw() do
+		for key in Events(stdin)
+			@show key
+			if key == CTRL_C
+				break
+			end
+		end
+	end
+	```
 """
 module Inputs
 
@@ -45,6 +77,8 @@ export
 	Null,
 	PageDown,
 	PageUp,
+	PasteStart,
+	PasteEnd,
 	Right,
 	Second,
 	Shift,
@@ -61,8 +95,7 @@ Use [`nopaste!`](@ref) to return the terminal to normal.
 
 !!! note
 
-    Prefer using [`paste`](@ref) where possible as it's very easy to accidently
-    leave the bracketed paste mode enabled using this method.
+	Prefer using [`paste`](@ref) where possible as it's very easy to accidently leave the bracketed paste mode enabled using this method.
 """
 paste!(terminal = TERMINAL[]) = print(terminal.out_stream, Terminals.CSI, "?2004h")
 
@@ -117,9 +150,7 @@ struct Unknown <: Event
 	data::Vector{UInt8}
 end
 
-# When trying to read an event, we want to soak up any extra bytes because it
-# is better to miss an event that was sent quickly than it is to accidentally
-# send an event that the user didn't wish to send.
+# When trying to read an event, we want to soak up any extra bytes because it is better to miss an event that was sent quickly than it is to accidentally send an event that the user didn't wish to send.
 Unknown(data, input) = Unknown([
 	data;
 	bytesavailable(input) > 0 ? readavailable(input) : [];
@@ -234,9 +265,7 @@ Base.show(io::IO, modified::Modified) = print(
 	modified.key,
 )
 
-# We actually want the vector in `Modified` to be a set, but actually using
-# `Set` is just annoying. This vector can only have at most 4 elements, so
-# performance not a worry (and probably better than using a `Set` TBH).
+# We actually want the vector in `Modified` to be a set, but actually using `Set` is just annoying. This vector can only have at most 4 elements, so performance not a worry (and probably better than using a `Set` TBH).
 function Base.:(==)(left::Modified, right::Modified)
 	left.key == right.key && all(
 		modifier in right.modifiers
@@ -315,14 +344,11 @@ function Base.read(input::IO, ::Type{Event})
 		Null()
 	elseif first == 0x7f
 		Backspace()
-	# Line feeds and carriage returns are indistinguishable from Ctrl+j and
-	# Ctrl+m so catch them before checking for Ctrl.
+	# Line feeds and carriage returns are indistinguishable from Ctrl+j and Ctrl+m so catch them before checking for Ctrl.
 	elseif first == UInt8('\n') || first == UInt8('\r')
-		# Enter key sends a carriage return not a line feed, which is surprising
-		# to most people.
+		# Enter key sends a carriage return not a line feed, which is surprising to most people.
 		Character('\n')
-	# Tabs are indistinguishable from Ctrl+i so catch them before checking for
-	# Ctrl.
+	# Tabs are indistinguishable from Ctrl+i so catch them before checking for Ctrl.
 	elseif first == UInt8('\t')
 		Character('\t')
 	elseif first in CTRL_LOWER_RANGE
@@ -534,33 +560,27 @@ Events(terminal::Terminals.TTYTerminal) = Events(terminal.in_stream)
 Events() = Events(TERMINAL[].in_stream)
 
 Base.iterate(e::Events, _ = nothing) = (read(e.input, Event), nothing)
-Base.IteratorSize(::Type{Events}) = Base.IsInfinite()
-Base.IteratorEltype(::Type{Events}) = Base.HasEltype()
+Base.IteratorSize(::Type{Events{T}}) where T = Base.IsInfinite()
+Base.IteratorEltype(::Type{Events{T}}) where T = Base.HasEltype()
 Base.eltype(::Type{Events}) = Input
 
 
 """
 Iterate over a simple event loop.
 
-The event loop will send a [`Tick`](@ref) event every period (though this isn't
-guaranteed, for example computationally heavy loop bodies will cause the tick to
-be sent after the body finishes), and send any received input events between
-those ticks.
+The event loop will send a [`Tick`](@ref) event every period (though this isn't guaranteed, for example computationally heavy loop bodies will cause the tick to be sent after the body finishes), and send any received input events between those ticks.
 
 !!! warning
 
-    There is currently a bug in this iterator which makes it "eat" the next byte
-    sent to the stream. This shouldn't be an issue in the common use-case of an
-    event loop, where the process exits when the event loop does.
+	There is currently a bug in this iterator which makes it "eat" the next byte sent to the stream. This shouldn't be an issue in the common use-case of an event loop, where the process exits when the event loop does.
 
 !!! warning
 
-    The current implementation is incompatible with the following methods because
-    there is a background task constantly reading from the input stream:
+	The current implementation is incompatible with the following methods because there is a background task constantly reading from the input stream:
 
-    * [`Cursor.location`](@ref).
-    * [`Cursor.move!`](@ref) methods that take a [`Cursor.Row`](@ref).
-    * [`Screen.size`](@ref).
+	* [`Cursor.location`](@ref).
+	* [`Cursor.move!`](@ref) methods that take a [`Cursor.Row`](@ref).
+	* [`Screen.size`](@ref).
 
 # Examples
 
