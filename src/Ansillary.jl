@@ -17,16 +17,14 @@ module Ansillary
 
 using REPL.Terminals: TTYTerminal
 
-
 export Cursor, Inputs, Screen, TTYTerminal
-
 
 const TERMINAL = Ref{TTYTerminal}()
 
 function __init__()
-	TERMINAL[] = TTYTerminal(get(ENV, "TERM", Sys.iswindows() ? "" : "dumb"), stdin, stdout, stderr)
+    TERMINAL[] =
+        TTYTerminal(get(ENV, "TERM", Sys.iswindows() ? "" : "dumb"), stdin, stdout, stderr)
 end
-
 
 # Needs to be at top because `Cursor` needs it.
 include("Inputs.jl")

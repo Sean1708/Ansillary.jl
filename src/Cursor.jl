@@ -71,22 +71,19 @@ import ..TERMINAL
 using ..Inputs: Event, Location
 using REPL.Terminals: CSI
 
-
-export
-	Column,
-	Coordinate,
-	Down,
-	Left,
-	Movement,
-	Up,
-	Right,
-	Row,
-	checkpoint,
-	hide,
-	location,
-	move!,
-	save
-
+export Column,
+    Coordinate,
+    Down,
+    Left,
+    Movement,
+    Up,
+    Right,
+    Row,
+    checkpoint,
+    hide,
+    location,
+    move!,
+    save
 
 """
 A nestable implementation of [`save`](@ref).
@@ -102,14 +99,13 @@ A nestable implementation of [`save`](@ref).
 This function will save the current location of the cursor, run the function, then move the cursor back to it's original location.
 """
 function checkpoint(f, terminal = TERMINAL[])
-	old = location(terminal)
-	try
-		f()
-	finally
-		move!(terminal, Coordinate(old.row, old.column))
-	end
+    old = location(terminal)
+    try
+        f()
+    finally
+        move!(terminal, Coordinate(old.row, old.column))
+    end
 end
-
 
 """
 Permanently hide the cursor.
@@ -126,21 +122,20 @@ hide!(terminal = TERMINAL[]) = print(terminal.out_stream, CSI, "?25l")
 Show the cursor again after it has been hidden by [`hide!`](@ref).
 """
 function show!(terminal = TERMINAL[])
-	print(terminal.out_stream, CSI, "?25h")
+    print(terminal.out_stream, CSI, "?25h")
 end
 
 """
 Temporarily hide the cursor for the duration of the provided function.
 """
 function hide(f, terminal = TERMINAL[])
-	hide!(terminal)
-	try
-		f()
-	finally
-		show!(terminal)
-	end
+    hide!(terminal)
+    try
+        f()
+    finally
+        show!(terminal)
+    end
 end
-
 
 """
 Get the current location of the cursor.
@@ -150,15 +145,14 @@ Get the current location of the cursor.
 	This function will only work properly in raw mode, e.g. `Screen.raw(Cursor.location)`.
 """
 function location(terminal = TERMINAL[])
-	print(terminal.out_stream, CSI, "6n")
+    print(terminal.out_stream, CSI, "6n")
 
-	event = read(terminal.in_stream, Event)
+    event = read(terminal.in_stream, Event)
 
-	@assert event isa Location
+    @assert event isa Location
 
-	event
+    event
 end
-
 
 _move!(terminal, codes...) = print(terminal.out_stream, CSI, codes...)
 
@@ -188,7 +182,7 @@ move!(direction::Movement) = move!(TERMINAL[], direction)
 Move the cursor up the given number of rows.
 """
 struct Up <: Movement
-	count::UInt16
+    count::UInt16
 end
 move!(terminal, direction::Up) = _move!(terminal, direction.count, "A")
 
@@ -196,7 +190,7 @@ move!(terminal, direction::Up) = _move!(terminal, direction.count, "A")
 Move the cursor down the given number of rows.
 """
 struct Down <: Movement
-	count::UInt16
+    count::UInt16
 end
 move!(terminal, direction::Down) = _move!(terminal, direction.count, "B")
 
@@ -204,7 +198,7 @@ move!(terminal, direction::Down) = _move!(terminal, direction.count, "B")
 Move the cursor left the given number of columns.
 """
 struct Left <: Movement
-	count::UInt16
+    count::UInt16
 end
 move!(terminal, direction::Left) = _move!(terminal, direction.count, "D")
 
@@ -212,7 +206,7 @@ move!(terminal, direction::Left) = _move!(terminal, direction.count, "D")
 Move the cursor right the given number of columns.
 """
 struct Right <: Movement
-	count::UInt16
+    count::UInt16
 end
 move!(terminal, direction::Right) = _move!(terminal, direction.count, "C")
 
@@ -220,10 +214,11 @@ move!(terminal, direction::Right) = _move!(terminal, direction.count, "C")
 Move the cursor to the given coordinate.
 """
 struct Coordinate <: Movement
-	row::UInt16
-	column::UInt16
+    row::UInt16
+    column::UInt16
 end
-move!(terminal, direction::Coordinate) = _move!(terminal, direction.row, ";", direction.column, "H")
+move!(terminal, direction::Coordinate) =
+    _move!(terminal, direction.row, ";", direction.column, "H")
 
 """
 Move the cursor to a given row _without changing it's column_.
@@ -233,21 +228,20 @@ Move the cursor to a given row _without changing it's column_.
 	This movement currently does not work properly with `Inputs.EventLoop` due to it's use of `Cursor.location`.
 """
 struct Row <: Movement
-	row::UInt16
+    row::UInt16
 end
 function move!(terminal, direction::Row)
-	column = location(terminal).column
-	move!(terminal, Coordinate(direction.row, column))
+    column = location(terminal).column
+    move!(terminal, Coordinate(direction.row, column))
 end
 
 """
 Move the cursor to a given column _without changing it's row_.
 """
 struct Column <: Movement
-	column::UInt16
+    column::UInt16
 end
 move!(terminal, direction::Column) = _move!(terminal, direction.column, "G")
-
 
 """
 Save the current location of the cursor.
@@ -279,12 +273,12 @@ Return the cursor to it's current location after the function has finished.
 	This uses the ANSI code for saving the cursor so it can't be nested, use [`checkpoint`](@ref) if these calls need to be nested.
 """
 function save(f, terminal = TERMINAL[])
-	save!(terminal)
-	try
-		f()
-	finally
-		restore!(terminal)
-	end
+    save!(terminal)
+    try
+        f()
+    finally
+        restore!(terminal)
+    end
 end
 
 end # module

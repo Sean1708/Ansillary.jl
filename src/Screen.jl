@@ -38,19 +38,16 @@ import ..TERMINAL
 
 using REPL.Terminals: CSI, raw!
 
-
-export
-	All,
-	CurrentLine,
-	FromCursorBack,
-	FromCursorDown,
-	FromCursorForward,
-	FromCursorUp,
-	alternative,
-	clear!,
-	raw,
-	size
-
+export All,
+    CurrentLine,
+    FromCursorBack,
+    FromCursorDown,
+    FromCursorForward,
+    FromCursorUp,
+    alternative,
+    clear!,
+    raw,
+    size
 
 """
 Permanently activate the alternative screen.
@@ -76,16 +73,15 @@ Temporarily activate the alernative screen for the duration of the function.
 This function also sets the terminal to raw mode as it is rare that you'll need the alternative screen but not raw mode. If the alternative screen is needed without setting raw mode, use [`alternative!`](@ref) and [`standard!`](@ref) directly.
 """
 function alternative(f, terminal = TERMINAL[])
-	raw(terminal) do
-		alternative!(terminal)
-		try
-			f()
-		finally
-			standard!(terminal)
-		end
-	end
+    raw(terminal) do
+        alternative!(terminal)
+        try
+            f()
+        finally
+            standard!(terminal)
+        end
+    end
 end
-
 
 _clear!(terminal, code) = print(terminal.out_stream, CSI, code)
 
@@ -146,25 +142,23 @@ Clear from the start of the current line up to the cursor and any lines above th
 struct FromCursorUp <: Area end
 clear!(terminal, ::FromCursorUp) = _clear!(terminal, "1J")
 
-
 """
 Temporarily set the terminal to raw mode for the duration of the function.
 
 If switching to raw mode permanently is required use `REPL.Terminals.raw!`.
 """
 function raw(f, terminal = TERMINAL[])
-	raw!(terminal, true)
-	try
-		f()
-	finally
-		raw!(terminal, false)
-	end
+    raw!(terminal, true)
+    try
+        f()
+    finally
+        raw!(terminal, false)
+    end
 end
 
-
 struct Size
-	rows::UInt32
-	columns::UInt32
+    rows::UInt32
+    columns::UInt32
 end
 
 """
@@ -173,8 +167,8 @@ Get the current size of the terminal.
 See also: `displaysize`.
 """
 function size(terminal = TERMINAL[])
-	(rows, columns) = displaysize(terminal.out_stream)
-	Size(rows, columns)
+    (rows, columns) = displaysize(terminal.out_stream)
+    Size(rows, columns)
 end
 
 end # module
